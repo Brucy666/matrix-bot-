@@ -1,7 +1,7 @@
 # btc_sniper_engine.py
 # Sniper strategy logic for BTC/USDT using KuCoin data
 
-from kucoin_feed import get_kucoin_sniper_feed
+from kucoin_feed import get_kucoin_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
 from trap_journal import log_sniper_event
 from discord_alert import send_discord_alert
@@ -16,33 +16,44 @@ def run_btc_sniper():
         return
 
     try:
-        # Extract close prices as flat float list
+        # Prepare market data
         close_prices = df['close'].astype(float).tolist()
+        rsi_series = df['rsi'].astype(float).tolist()
         volume = df['volume'].astype(float).tolist()
 
-        # Use most recent values
         last_close = float(close_prices[-1])
         vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
-        rsi = float(df['rsi'].iloc[-1]) if 'rsi' in df.columns else 50.0
 
-        # Core sniper trap logic
-        if rsi < 45 and last_close < vwap:
-            score = score_sniper_signal(rsi=rsi, vwap=vwap, price=last_close)
+        # Get spoof ratio from orderbook
+        orderbook = fetch_orderbook()
+        bids = float(orderbook.get("bids", 1.0))
+        asks = float(orderbook.get("asks", 1.0))
+
+        # Scoring logic
+        score, reasons = score_vsplit_vwap({
+            "rsi": rsi_series,
+            "price": last_close,
+            "vwap": vwap,
+            "bids": bids,
+            "asks": asks
+        })
+
+        if score >= 2:
             trap = {
                 "symbol": "BTC/USDT",
                 "exchange": "KuCoin",
                 "timestamp": datetime.utcnow().isoformat(),
                 "entry_price": last_close,
                 "vwap": round(vwap, 2),
-                "rsi": round(rsi, 2),
-                "reason": "RSI-V + VWAP Trap",
-                "score": score
+                "rsi": round(rsi_series[-1], 2),
+                "score": score,
+                "reasons": reasons
             }
             log_sniper_event(trap)
             send_discord_alert(trap)
             print("[TRIGGER] Sniper Entry:", trap)
         else:
-            print("[BTC SNIPER] No valid sniper setup.")
+            print(f"[BTC SNIPER] No valid sniper setup. Score: {score}")
 
     except Exception as e:
         print(f"[!] Engine Error: {e}")

@@ -1,8 +1,10 @@
+# discord_alert.py
 import requests
-import os
 from datetime import datetime
 
+# Hardcoded webhook for testing
 DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1395380527938404363/e7RT8fXbH14NuInl0x-Z3uy111KjRZ78JcOkdHLmlnWZiwTfBQedGg43p3FpJ9ZSU3Xg"
+
 def format_discord_alert(trade_data):
     symbol = trade_data.get("symbol")
     score = trade_data.get("score", 0)
@@ -11,7 +13,7 @@ def format_discord_alert(trade_data):
     trap_type = trade_data.get("trap_type", "Unclassified")
     rsi_status = trade_data.get("rsi_status", "None")
     confidence = trade_data.get("confidence", 0)
-    vsetup = trade_data.get("vsplit_score", "None")  # new V setup score
+    vsetup = trade_data.get("vsplit_score", "None")
     timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
 
     # Emojis
@@ -49,8 +51,10 @@ def send_discord_alert(trade_data):
         data = format_discord_alert(trade_data)
         try:
             response = requests.post(DISCORD_WEBHOOK, json=data)
-            if response.status_code != 204:
+            if response.status_code not in [200, 204]:
                 print(f"[!] Discord alert failed: {response.status_code}")
+            else:
+                print("[✓] Discord alert sent.")
         except Exception as e:
             print(f"[!] Discord alert error: {e}")
     else:

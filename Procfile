@@ -1,1 +1,1 @@
-worker: python3 btc_sniper_engine.py
+worker: python3 sniper_loop.py

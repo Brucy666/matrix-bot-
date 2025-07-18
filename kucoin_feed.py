@@ -1,5 +1,6 @@
 # kucoin_feed.py
 import requests
+import pandas as pd
 
 KCS_BASE_URL = "https://api.kucoin.com"
 
@@ -29,3 +30,20 @@ def fetch_orderbook(symbol="BTC-USDT"):
     except Exception as e:
         print(f"[!] Error fetching orderbook: {e}")
         return {"bids": 1.0, "asks": 1.0}
+
+# ✅ Sniper-ready feed function
+def get_kucoin_sniper_feed():
+    raw = fetch_klines()
+    if not raw or len(raw[0]) < 7:
+        return None
+
+    # Transform into DataFrame
+    df = pd.DataFrame(raw, columns=[
+        "timestamp", "open", "close", "high", "low", "volume", "turnover"
+    ])
+
+    df = df.astype(float)
+    df["vwap"] = df["turnover"] / df["volume"]
+    df["rsi"] = df["close"].rolling(window=14).apply(lambda x: 100 - (100 / (1 + (x.diff().clip(lower=0).mean() / abs(x.diff().clip(upper=0).mean())))) if x.count() >= 14 else 50)
+
+    return df[["close", "vwap", "rsi", "volume"]].tail(20)

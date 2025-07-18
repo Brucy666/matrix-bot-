@@ -13,6 +13,7 @@ print("[✓] BTC Sniper Engine Started for BTC-USDT...")
 def run_btc_sniper():
     df = get_kucoin_sniper_feed()
     if df is None or len(df) < 20:
+        print("[!] No data returned from KuCoin feed.")
         return
 
     try:
@@ -38,7 +39,8 @@ def run_btc_sniper():
             "asks": asks
         })
 
-        if score >= 2:
+        # TEMP: Lowered score threshold to trigger logs
+        if score >= 0:
             trap = {
                 "symbol": "BTC/USDT",
                 "exchange": "KuCoin",
@@ -53,7 +55,7 @@ def run_btc_sniper():
             send_discord_alert(trap)
             print("[TRIGGER] Sniper Entry:", trap)
         else:
-            print(f"[BTC SNIPER] No valid sniper setup. Score: {score}")
+            print(f"[BTC SNIPER] No trap setup. Score: {score} | RSI: {rsi_series[-1]} | Price: {last_close}")
 
     except Exception as e:
         print(f"[!] Engine Error: {e}")

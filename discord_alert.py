@@ -2,7 +2,7 @@ import requests
 import os
 from datetime import datetime
 
-DISCORD_WEBHOOK = os.getenv("DISCORD_TRADE_WEBHOOK")  
+DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1395380527938404363/e7RT8fXbH14NuInl0x-Z3uy111KjRZ78JcOkdHLmlnWZiwTfBQedGg43p3FpJ9ZSU3Xg"
 def format_discord_alert(trade_data):
     symbol = trade_data.get("symbol")
     score = trade_data.get("score", 0)

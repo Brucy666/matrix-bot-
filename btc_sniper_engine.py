@@ -2,7 +2,7 @@
 # Sniper strategy logic for BTC/USDT using KuCoin data
 
 from kucoin_feed import get_kucoin_sniper_feed
-from sniper_score import score_sniper_signal
+from sniper_score import score_vsplit_vwap
 from trap_journal import log_sniper_event
 from discord_alert import send_discord_alert
 from datetime import datetime

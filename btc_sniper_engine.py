@@ -1,18 +1,16 @@
-# btc_sniper_engine.py
-# Sniper strategy logic for BTC/USDT using KuCoin data
+# bybit_sniper_engine.py
 
-from kucoin_feed import get_kucoin_sniper_feed, fetch_orderbook
+from bybit_feed import get_bybit_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
-from gpt_money_flow import calculate_gpt_money_flow
 from trap_journal import log_sniper_event
 from discord_alert import send_discord_alert
 from datetime import datetime
 import numpy as np
 
-print("[✓] BTC Sniper Engine Started for BTC-USDT...")
+print("[✓] Bybit Sniper Engine Started for BTC-USDT...")
 
-def run_btc_sniper():
-    df = get_kucoin_sniper_feed()
+def run_bybit_sniper():
+    df = get_bybit_sniper_feed()
     if df is None or len(df) < 20:
         return
 
@@ -27,7 +25,6 @@ def run_btc_sniper():
         orderbook = fetch_orderbook()
         bids = float(orderbook.get("bids", 1.0))
         asks = float(orderbook.get("asks", 1.0))
-        spoof_ratio = round(bids / asks, 3) if asks else 0.1
 
         score, reasons = score_vsplit_vwap({
             "rsi": rsi_series,
@@ -37,38 +34,22 @@ def run_btc_sniper():
             "asks": asks
         })
 
-        mf = calculate_gpt_money_flow(
-            price=last_close,
-            vwap=vwap,
-            volume=volume[-1],
-            rsi_slope=rsi_series[-1] - rsi_series[-2],
-            spoof_ratio=spoof_ratio
-        )
-
-        trap = {
-            "symbol": "BTC/USDT",
-            "exchange": "KuCoin",
-            "timestamp": datetime.utcnow().isoformat(),
-            "entry_price": last_close,
-            "vwap": round(vwap, 2),
-            "rsi": round(rsi_series[-1], 2),
-            "score": score,
-            "reasons": reasons,
-            "spoof_ratio": spoof_ratio,
-            "trap_type": "RSI-V + VWAP Trap",
-            "rsi_status": "V-Split" if score else "None",
-            "vsplit_score": "VWAP Zone" if score else "None",
-            "confidence": mf["money_flow_score"],
-            "bias": mf["bias"],
-            "flow_reason": mf["reason"]
-        }
-
         if score >= 2:
+            trap = {
+                "symbol": "BTC/USDT",
+                "exchange": "Bybit",
+                "timestamp": datetime.utcnow().isoformat(),
+                "entry_price": last_close,
+                "vwap": round(vwap, 2),
+                "rsi": round(rsi_series[-1], 2),
+                "score": score,
+                "reasons": reasons
+            }
             log_sniper_event(trap)
             send_discord_alert(trap)
-            print("[TRIGGER] KuCoin Sniper Entry:", trap)
+            print("[TRIGGER] Bybit Sniper Entry:", trap)
         else:
-            print(f"[BTC SNIPER] No trap. Score: {score}, RSI: {rsi_series[-1]}, Price: {last_close}")
+            print(f"[BYBIT SNIPER] No trap. Score: {score}, RSI: {rsi_series[-1]}, Price: {last_close}")
 
     except Exception as e:
-        print(f"[!] Engine Error: {e}")
+        print(f"[!] Bybit Engine Error: {e}")

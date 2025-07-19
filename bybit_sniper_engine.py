@@ -1,14 +1,13 @@
 # bybit_sniper_engine.py
-# Bybit sniper trap detection engine
 
 from bybit_feed import get_bybit_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
-from discord_alert import send_discord_alert
 from trap_journal import log_sniper_event
+from discord_alert import send_discord_alert
 from datetime import datetime
 import numpy as np
 
-print("[+] Bybit Sniper Engine Started for BTC-USDT...")
+print("[✓] Bybit Sniper Engine Started for BTC-USDT...")
 
 def run_bybit_sniper():
     df = get_bybit_sniper_feed()
@@ -16,21 +15,15 @@ def run_bybit_sniper():
         return
 
     try:
-        # Extract historical market data
         close_prices = df['close'].astype(float).tolist()
         rsi_series = df['rsi'].astype(float).tolist()
-        volume = df['volume'].astype(float).tolist()
-
-        # Most recent values
         last_close = float(close_prices[-1])
         vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
 
-        # Spoof ratio from Bybit L2 snapshot
         orderbook = fetch_orderbook()
         bids = float(orderbook.get("bids", 1.0))
         asks = float(orderbook.get("asks", 1.0))
 
-        # Scoring engine
         score, reasons = score_vsplit_vwap({
             "rsi": rsi_series,
             "price": last_close,
@@ -40,6 +33,7 @@ def run_bybit_sniper():
         })
 
         if score >= 2:
+            spoof_ratio = round(bids / asks, 3) if asks != 0 else 0.0
             trap = {
                 "symbol": "BTC/USDT",
                 "exchange": "Bybit",
@@ -48,7 +42,14 @@ def run_bybit_sniper():
                 "vwap": round(vwap, 2),
                 "rsi": round(rsi_series[-1], 2),
                 "score": score,
-                "reasons": reasons
+                "reasons": reasons,
+                "trap_type": "RSI-V + VWAP Trap",
+                "spoof_ratio": spoof_ratio,
+                "bias": "Below" if last_close < vwap else "Above",
+                "rsi_status": "V-Split" if "split" in str(reasons).lower() else "None",
+                "vsplit_score": "VWAP Zone" if "vwap" in str(reasons).lower() else "None",
+                "confidence": score,
+                "flow_reason": "Below VWAP" if last_close < vwap else "Above VWAP"
             }
             log_sniper_event(trap)
             send_discord_alert(trap)
@@ -57,4 +58,4 @@ def run_bybit_sniper():
             print(f"[BYBIT SNIPER] No trap. Score: {score}, RSI: {rsi_series[-1]}, Price: {last_close}")
 
     except Exception as e:
-        print(f"[!] Bybit Sniper Engine Error: {e}")
+        print(f"[!] Bybit Engine Error:", e)

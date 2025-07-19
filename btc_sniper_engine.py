@@ -1,3 +1,6 @@
+# btc_sniper_engine.py
+# Sniper strategy logic for BTC/USDT using KuCoin data
+
 from kucoin_feed import get_kucoin_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
 from gpt_money_flow import calculate_gpt_money_flow
@@ -20,9 +23,11 @@ def run_btc_sniper():
 
         last_close = float(close_prices[-1])
         vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
+
         orderbook = fetch_orderbook()
         bids = float(orderbook.get("bids", 1.0))
         asks = float(orderbook.get("asks", 1.0))
+        spoof_ratio = round(bids / asks, 3) if asks else 0.1
 
         score, reasons = score_vsplit_vwap({
             "rsi": rsi_series,
@@ -32,13 +37,12 @@ def run_btc_sniper():
             "asks": asks
         })
 
-        # 🧠 Money Flow Calculation
         mf = calculate_gpt_money_flow(
             price=last_close,
             vwap=vwap,
             volume=volume[-1],
             rsi_slope=rsi_series[-1] - rsi_series[-2],
-            spoof_ratio=bids / asks if asks else 0.1
+            spoof_ratio=spoof_ratio
         )
 
         trap = {
@@ -50,7 +54,7 @@ def run_btc_sniper():
             "rsi": round(rsi_series[-1], 2),
             "score": score,
             "reasons": reasons,
-            "spoof_ratio": round(bids / asks, 3),
+            "spoof_ratio": spoof_ratio,
             "trap_type": "RSI-V + VWAP Trap",
             "rsi_status": "V-Split" if score else "None",
             "vsplit_score": "VWAP Zone" if score else "None",

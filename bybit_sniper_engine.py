@@ -1,21 +1,18 @@
 # bybit_sniper_engine.py
-# Sniper strategy logic for BTC/USDT using Bybit data
 
-from bybit_feed import get_bybit_sniper_feed
-from kucoin_feed import fetch_orderbook
+from bybit_feed import get_bybit_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
-from spoof_score_engine import apply_binance_spoof_scoring
+from gpt_money_flow import calculate_gpt_money_flow
 from trap_journal import log_sniper_event
 from discord_alert import send_discord_alert
 from datetime import datetime
 import numpy as np
 
-print("[✓] Bybit Sniper Engine Started for BTC-USDT...")
+print("[✓] Bybit Sniper Engine Started for BTCUSDT...")
 
 def run_bybit_sniper():
     df = get_bybit_sniper_feed()
     if df is None or len(df) < 20:
-        print("[BYBIT SNIPER] No data received from Bybit.")
         return
 
     try:
@@ -29,6 +26,7 @@ def run_bybit_sniper():
         orderbook = fetch_orderbook()
         bids = float(orderbook.get("bids", 1.0))
         asks = float(orderbook.get("asks", 1.0))
+        spoof_ratio = round(bids / asks, 3) if asks else 0.1
 
         score, reasons = score_vsplit_vwap({
             "rsi": rsi_series,
@@ -38,8 +36,16 @@ def run_bybit_sniper():
             "asks": asks
         })
 
+        mf = calculate_gpt_money_flow(
+            price=last_close,
+            vwap=vwap,
+            volume=volume[-1],
+            rsi_slope=rsi_series[-1] - rsi_series[-2],
+            spoof_ratio=spoof_ratio
+        )
+
         trap = {
-            "symbol": "BTC/USDT",
+            "symbol": "BTCUSDT",
             "exchange": "Bybit",
             "timestamp": datetime.utcnow().isoformat(),
             "entry_price": last_close,
@@ -47,23 +53,21 @@ def run_bybit_sniper():
             "rsi": round(rsi_series[-1], 2),
             "score": score,
             "reasons": reasons,
+            "spoof_ratio": spoof_ratio,
             "trap_type": "RSI-V + VWAP Trap",
-            "spoof_ratio": round(bids / asks, 2) if asks else 0,
-            "bias": "Below" if last_close < vwap else "Above",
-            "confidence": round(score, 1),
-            "rsi_status": "V-Split" if score >= 2 else "None",
-            "vsplit_score": "VWAP Zone" if abs(last_close - vwap) / vwap < 0.002 else "Outside Range"
+            "rsi_status": "V-Split" if score else "None",
+            "vsplit_score": "VWAP Zone" if score else "None",
+            "confidence": mf["money_flow_score"],
+            "bias": mf["bias"],
+            "flow_reason": mf["reason"]
         }
 
-        trap = apply_binance_spoof_scoring(trap)
-
-        log_sniper_event(trap)
-        send_discord_alert(trap)
-
-        if trap["score"] >= 2:
+        if score >= 2:
+            log_sniper_event(trap)
+            send_discord_alert(trap)
             print("[TRIGGER] Bybit Sniper Entry:", trap)
         else:
-            print(f"[BYBIT SNIPER] No trap. Score: {trap['score']}, RSI: {rsi_series[-1]}, Price: {last_close}")
+            print(f"[BYBIT SNIPER] No trap. Score: {score}, RSI: {rsi_series[-1]}, Price: {last_close}")
 
     except Exception as e:
-        print(f"[!] Bybit Sniper Error: {e}")
+        print(f"[!] Bybit Engine Error: {e}")

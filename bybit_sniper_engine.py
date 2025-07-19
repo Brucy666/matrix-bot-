@@ -2,7 +2,7 @@
 # Sniper strategy logic for BTC/USDT using Bybit data
 
 from bybit_feed import get_bybit_sniper_feed
-from kucoin_feed import fetch_orderbook  # reuse spoof logic from KuCoin
+from kucoin_feed import fetch_orderbook
 from sniper_score import score_vsplit_vwap
 from trap_journal import log_sniper_event
 from discord_alert import send_discord_alert
@@ -25,7 +25,6 @@ def run_bybit_sniper():
         last_close = float(close_prices[-1])
         vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
 
-        # Reuse KuCoin's orderbook spoof logic for now
         orderbook = fetch_orderbook()
         bids = float(orderbook.get("bids", 1.0))
         asks = float(orderbook.get("asks", 1.0))
@@ -38,7 +37,7 @@ def run_bybit_sniper():
             "asks": asks
         })
 
-        if score >= 2:
+        if score >= 0:
             trap = {
                 "symbol": "BTC/USDT",
                 "exchange": "Bybit",
@@ -51,9 +50,9 @@ def run_bybit_sniper():
             }
             log_sniper_event(trap)
             send_discord_alert(trap)
-            print("[BYBIT TRIGGER] Sniper Entry:", trap)
+            print("[TRIGGER] Bybit Sniper Entry:", trap)
         else:
-            print(f"[BYBIT SNIPER] No valid trap. Score: {score}")
+            print(f"[BYBIT SNIPER] No trap. Score: {score}, RSI: {rsi_series[-1]}, Price: {last_close}")
 
     except Exception as e:
-        print(f"[!] Bybit Engine Error: {e}")
+        print(f"[!] Bybit Sniper Error: {e}")

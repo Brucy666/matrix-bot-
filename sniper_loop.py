@@ -1,21 +1,22 @@
+# sniper_loop.py
 import time
-from btc_sniper_engine import run_btc_engine
-from bybit_sniper_engine import run_bybit_engine
-from binance_sniper_engine import run_binance_engine
+from btc_sniper_engine import run_btc_sniper
+from bybit_sniper_engine import run_bybit_sniper
+from binance_sniper_engine import run_binance_sniper
 
-print("[LOOP] 🔁 Starting sniper loop...")
+print("[LOOP] 🚀 Starting sniper loop...")
 
 while True:
-    print("\n[LOOP] 🌀 TICK — New Sniper Cycle")
+    print("\n[LOOP] 🔁 TICK — New Sniper Cycle")
 
     print("[LOOP] Running KuCoin sniper...")
-    run_btc_engine()
+    run_btc_sniper()
 
     print("[LOOP] Running Bybit sniper...")
-    run_bybit_engine()
+    run_bybit_sniper()
 
     print("[LOOP] Running Binance sniper...")
-    run_binance_engine()
+    run_binance_sniper()
 
-    print("[LOOP] 💤 Sleeping for 60 seconds\n")
+    print("[LOOP] 😴 Sleeping for 60 seconds")
     time.sleep(60)

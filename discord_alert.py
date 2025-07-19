@@ -1,8 +1,8 @@
-# discord_alert.py
+
 import requests
 from datetime import datetime
 
-DISCORD_WEBHOOK = "https://discord.com/api/webhooks/..."  # your webhook
+DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1395380527938404363/e7RT8fXbH14NuInl0x-Z3uy111KjRZ78JcOkdHLmlnWZiwTfBQedGg43p3FpJ9ZSU3Xg"
 
 def format_discord_alert(trade_data):
     symbol = trade_data.get("symbol", "N/A")
@@ -16,7 +16,6 @@ def format_discord_alert(trade_data):
     vsetup = trade_data.get("vsplit_score", "None")
     timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
 
-    # Emojis
     emoji = "📉" if bias == "Below" else "📈"
     spoof_emoji = "🟡" if spoof < 0.3 else "🟠" if spoof < 0.6 else "🔴"
     confidence_emoji = "🧠" if confidence >= 8 else "⚠️" if confidence >= 5 else "❓"
@@ -40,21 +39,24 @@ def format_discord_alert(trade_data):
                     {"name": "Confidence", "value": f"{confidence_emoji} `{confidence}/10`", "inline": True},
                     {"name": "Timestamp", "value": f"`{timestamp}`", "inline": False}
                 ],
-                "footer": {
-                    "text": "QuickStrike Sniper Feed"
-                }
+                "footer": {"text": "QuickStrike Sniper Feed"}
             }
         ]
     }
 
 def send_discord_alert(trade_data):
-    if DISCORD_WEBHOOK:
-        data = format_discord_alert(trade_data)
-        try:
-            response = requests.post(DISCORD_WEBHOOK, json=data)
-            if response.status_code != 204:
-                print(f"[!] Discord alert failed: {response.status_code}")
-        except Exception as e:
-            print(f"[!] Discord alert error: {e}")
-    else:
+    if not DISCORD_WEBHOOK:
         print("[!] Missing DISCORD_WEBHOOK")
+        return
+
+    payload = format_discord_alert(trade_data)
+    headers = {"Content-Type": "application/json"}
+
+    try:
+        response = requests.post(DISCORD_WEBHOOK, json=payload, headers=headers)
+        if response.status_code not in [204, 200]:
+            print(f"[!] Discord alert failed: {response.status_code} | {response.text}")
+        else:
+            print("[✓] Discord alert sent.")
+    except Exception as e:
+        print(f"[!] Discord alert error: {e}")

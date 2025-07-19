@@ -1,61 +1,73 @@
 # binance_sniper_engine.py
-# Binance sniper engine for global spoof/trap signal detection
 
-from binance_feed import analyze_binance_spoof
+from binance_feed import get_binance_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
+from gpt_money_flow import calculate_gpt_money_flow
 from trap_journal import log_sniper_event
 from discord_alert import send_discord_alert
 from datetime import datetime
 import numpy as np
 
-print("[✓] Binance Sniper Engine Started for BTC-USDT...")
+print("[✓] Binance Sniper Engine Started for BTCUSDT...")
 
 def run_binance_sniper():
-    try:
-        # Pull spoof + wall info
-        spoof_data = analyze_binance_spoof("BTCUSDT")
-        spoof_ratio = spoof_data.get("spoof_ratio", 0.0)
-        bid_wall = spoof_data.get("bid_wall", 0.0)
-        ask_wall = spoof_data.get("ask_wall", 0.0)
+    df = get_binance_sniper_feed()
+    if df is None or len(df) < 20:
+        return
 
-        # Placeholder RSI/VWAP estimation for now (until full feed wired)
-        rsi_series = [44.0, 38.5, 41.2]  # mock RSI
-        close_price = 58250.0           # placeholder
-        vwap = 58320.0                  # placeholder
+    try:
+        close_prices = df['close'].astype(float).tolist()
+        rsi_series = df['rsi'].astype(float).tolist()
+        volume = df['volume'].astype(float).tolist()
+
+        last_close = float(close_prices[-1])
+        vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
+
+        orderbook = fetch_orderbook()
+        bids = float(orderbook.get("bids", 1.0))
+        asks = float(orderbook.get("asks", 1.0))
+        spoof_ratio = round(bids / asks, 3) if asks else 0.1
 
         score, reasons = score_vsplit_vwap({
             "rsi": rsi_series,
-            "price": close_price,
+            "price": last_close,
             "vwap": vwap,
-            "bids": bid_wall,
-            "asks": ask_wall
+            "bids": bids,
+            "asks": asks
         })
 
+        mf = calculate_gpt_money_flow(
+            price=last_close,
+            vwap=vwap,
+            volume=volume[-1],
+            rsi_slope=rsi_series[-1] - rsi_series[-2],
+            spoof_ratio=spoof_ratio
+        )
+
         trap = {
-            "symbol": "BTC/USDT",
+            "symbol": "BTCUSDT",
             "exchange": "Binance",
             "timestamp": datetime.utcnow().isoformat(),
-            "entry_price": close_price,
+            "entry_price": last_close,
             "vwap": round(vwap, 2),
             "rsi": round(rsi_series[-1], 2),
             "score": score,
             "reasons": reasons,
-            "trap_type": "Global Spoof Signal",
             "spoof_ratio": spoof_ratio,
-            "binance_bid_wall": bid_wall,
-            "binance_ask_wall": ask_wall,
-            "bias": "Below" if close_price < vwap else "Above",
-            "confidence": round(score * 1.5, 1),
-            "rsi_status": "V-Split" if score >= 2 else "None",
-            "vsplit_score": "VWAP Zone" if abs(close_price - vwap) / vwap < 0.002 else "Outside Range"
+            "trap_type": "Global Spoof Signal",
+            "rsi_status": "V-Split" if score else "None",
+            "vsplit_score": "VWAP Zone" if score else "None",
+            "confidence": mf["money_flow_score"],
+            "bias": mf["bias"],
+            "flow_reason": mf["reason"]
         }
 
-        if trap["score"] >= 3:
+        if score >= 2:
             log_sniper_event(trap)
             send_discord_alert(trap)
-            print("[TRIGGER] Binance Global Sniper Entry:", trap)
+            print("[TRIGGER] Binance Sniper Entry:", trap)
         else:
-            print(f"[BINANCE SNIPER] No trap. Score: {trap['score']}, RSI: {rsi_series[-1]}, Price: {close_price}")
+            print(f"[BINANCE SNIPER] No trap. Score: {score}, RSI: {rsi_series[-1]}, Price: {last_close}")
 
     except Exception as e:
-        print(f"[!] Binance Sniper Error: {e}")
+        print(f"[!] Binance Engine Error: {e}")

@@ -17,7 +17,6 @@ def run_binance_sniper():
     try:
         close_prices = df['close'].astype(float).tolist()
         rsi_series = df['rsi'].astype(float).tolist()
-
         last_close = float(close_prices[-1])
         vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
 
@@ -34,6 +33,7 @@ def run_binance_sniper():
         })
 
         if score >= 2:
+            spoof_ratio = round(bids / asks, 3) if asks != 0 else 0.0
             trap = {
                 "symbol": "BTC/USDT",
                 "exchange": "Binance",
@@ -44,7 +44,7 @@ def run_binance_sniper():
                 "score": score,
                 "reasons": reasons,
                 "trap_type": "RSI-V + VWAP Trap",
-                "spoof_ratio": round(bids / asks, 3),
+                "spoof_ratio": spoof_ratio,
                 "bias": "Below" if last_close < vwap else "Above",
                 "rsi_status": "V-Split" if "split" in str(reasons).lower() else "None",
                 "vsplit_score": "VWAP Zone" if "vwap" in str(reasons).lower() else "None",

@@ -1,64 +1,41 @@
 import requests
-import os
 from datetime import datetime
 
-DISCORD_WEBHOOK = os.getenv("DISCORD_TRADE_WEBHOOK") or "https://discord.com/api/webhooks/1395380527938404363/e7RT8fXbH14NuInl0x-Z3uy111KjRZ78JcOkdHLmlnWZiwTfBQedGg43p3FpJ9ZSU3Xg"
+DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1395380527938404363/e7RT8fXbH14NuInl0x-Z3uy111KjRZ78JcOkdHLmlnWZiwTfBQedGg43p3FpJ9ZSU3Xg"
 
-def format_discord_alert(trade_data):
-    symbol = trade_data.get("symbol", "Unknown")
-    exchange = trade_data.get("exchange", "Unknown")
-    score = trade_data.get("score", 0)
-    spoof = trade_data.get("spoof_ratio", 0.0)
-    bias = trade_data.get("bias", "Unknown").capitalize()
-    trap_type = trade_data.get("trap_type", "Unclassified")
-    rsi_status = trade_data.get("rsi_status", "None")
-    confidence = trade_data.get("confidence", 0)
-    vsetup = trade_data.get("vsplit_score", "None")
-    timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
-    flow_reason = trade_data.get("flow_reason", "")
-
-    # Emojis
-    emoji = "📉" if bias == "Below" else "📈" if bias == "Above" else "📊"
-    spoof_emoji = "🟢" if spoof < 0.3 else "🟡" if spoof < 0.6 else "🔴"
-    confidence_emoji = "🧠" if confidence >= 8 else "⚠️" if confidence >= 5 else "❓"
-    rsi_emoji = "💥" if "split" in rsi_status.lower() else "🌀" if "collapse" in rsi_status.lower() else "📊"
-    v_emoji = "🔵" if "vwap" in str(vsetup).lower() else "🟣" if "split" in str(vsetup).lower() else "❌"
-
+def format_discord_alert(trade):
     return {
         "username": "QuickStrike Bot",
         "embeds": [
             {
-                "title": f"🎯 Sniper Trade Executed",
-                "color": 0x00ffae if bias == "Above" else 0xff5555,
+                "title": "🎯 Sniper Trade Executed",
+                "color": 0xff5555 if trade.get("bias") == "Below" else 0x00ffae,
                 "fields": [
-                    {"name": "Token", "value": f"`{symbol}`", "inline": True},
-                    {"name": "Exchange", "value": f"`{exchange}`", "inline": True},
-                    {"name": "Bias", "value": f"{emoji} `{bias}`", "inline": True},
-                    {"name": "Spoof Ratio", "value": f"{spoof_emoji} `{spoof:.3f}`", "inline": True},
-                    {"name": "Trap Type", "value": f"`{trap_type}`", "inline": True},
-                    {"name": "RSI", "value": f"{rsi_emoji} `{rsi_status}`", "inline": True},
-                    {"name": "VWAP / V Setup", "value": f"{v_emoji} `{vsetup}`", "inline": True},
-                    {"name": "Confidence", "value": f"{confidence_emoji} `{confidence}/10`", "inline": True},
-                    {"name": "Flow Reason", "value": f"`{flow_reason}`", "inline": False},
-                    {"name": "Timestamp", "value": f"`{timestamp}`", "inline": False}
+                    {"name": "Token", "value": f"`{trade.get('symbol', 'Unknown')}`", "inline": True},
+                    {"name": "Exchange", "value": f"{trade.get('exchange', 'N/A')}", "inline": True},
+                    {"name": "Bias", "value": f"📉 `{trade.get('bias', 'Unknown')}`", "inline": True},
+                    {"name": "Spoof Ratio", "value": f"🔴 `{trade.get('spoof_ratio', 0):.3f}`", "inline": True},
+                    {"name": "Trap Type", "value": f"`{trade.get('trap_type', 'Unclassified')}`", "inline": True},
+                    {"name": "RSI", "value": f"💥 `{trade.get('rsi_status', 'None')}`", "inline": True},
+                    {"name": "VWAP / V Setup", "value": f"🔵 `{trade.get('vsplit_score', 'None')}`", "inline": True},
+                    {"name": "Confidence", "value": f"❓ `{trade.get('confidence', 0)}/10`", "inline": True},
+                    {"name": "Timestamp", "value": f"`{trade.get('timestamp', datetime.utcnow().isoformat())}`", "inline": False}
                 ],
-                "footer": {
-                    "text": "QuickStrike Sniper Feed"
-                }
+                "footer": {"text": "QuickStrike Sniper Feed"}
             }
         ]
     }
 
 def send_discord_alert(trade_data):
-    if DISCORD_WEBHOOK:
-        try:
-            payload = format_discord_alert(trade_data)
-            response = requests.post(DISCORD_WEBHOOK, json=payload)
-            if response.status_code == 204:
-                print("✅ Discord alert sent.")
-            else:
-                print(f"[!] Discord alert failed: {response.status_code}")
-        except Exception as e:
-            print(f"[!] Discord alert error: {e}")
-    else:
+    if not DISCORD_WEBHOOK:
         print("[!] Missing DISCORD_WEBHOOK")
+        return
+
+    payload = format_discord_alert(trade_data)
+    try:
+        response = requests.post(DISCORD_WEBHOOK, json=payload)
+        print(f"[Discord] Status Code: {response.status_code}")
+        if response.status_code != 204:
+            print("[Discord] Error response:", response.text)
+    except Exception as e:
+        print(f"[!] Discord alert exception: {e}")

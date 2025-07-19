@@ -2,11 +2,11 @@
 import requests
 from datetime import datetime
 
-# Hardcoded webhook for testing
-DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1395380527938404363/e7RT8fXbH14NuInl0x-Z3uy111KjRZ78JcOkdHLmlnWZiwTfBQedGg43p3FpJ9ZSU3Xg"
+DISCORD_WEBHOOK = "https://discord.com/api/webhooks/..."  # your webhook
 
 def format_discord_alert(trade_data):
-    symbol = trade_data.get("symbol")
+    symbol = trade_data.get("symbol", "N/A")
+    exchange = trade_data.get("exchange", "Unknown")
     score = trade_data.get("score", 0)
     spoof = trade_data.get("spoof_ratio", 0)
     bias = trade_data.get("bias", "unknown").capitalize()
@@ -31,6 +31,7 @@ def format_discord_alert(trade_data):
                 "color": 0x00ffae if bias == "Above" else 0xff5555,
                 "fields": [
                     {"name": "Token", "value": f"`{symbol}`", "inline": True},
+                    {"name": "Exchange", "value": f"`{exchange}`", "inline": True},
                     {"name": "Bias", "value": f"{emoji} `{bias}`", "inline": True},
                     {"name": "Spoof Ratio", "value": f"{spoof_emoji} `{spoof:.3f}`", "inline": True},
                     {"name": "Trap Type", "value": f"`{trap_type}`", "inline": True},
@@ -51,10 +52,8 @@ def send_discord_alert(trade_data):
         data = format_discord_alert(trade_data)
         try:
             response = requests.post(DISCORD_WEBHOOK, json=data)
-            if response.status_code not in [200, 204]:
+            if response.status_code != 204:
                 print(f"[!] Discord alert failed: {response.status_code}")
-            else:
-                print("[✓] Discord alert sent.")
         except Exception as e:
             print(f"[!] Discord alert error: {e}")
     else:

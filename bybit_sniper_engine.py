@@ -1,5 +1,4 @@
 # bybit_sniper_engine.py
-
 from bybit_feed import get_bybit_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
 from trap_journal import log_sniper_event
@@ -9,17 +8,14 @@ import numpy as np
 
 print("[✓] Bybit Sniper Engine Started for BTC-USDT...")
 
-def run_bybit_sniper():
+def run_bybit_engine():
     df = get_bybit_sniper_feed()
     if df is None or len(df) < 20:
         return
 
     try:
-        # Prepare data
         close_prices = df['close'].astype(float).tolist()
         rsi_series = df['rsi'].astype(float).tolist()
-        volume = df['volume'].astype(float).tolist()
-
         last_close = float(close_prices[-1])
         vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
 
@@ -53,4 +49,5 @@ def run_bybit_sniper():
             print(f"[BYBIT SNIPER] No trap. Score: {score}, RSI: {rsi_series[-1]}, Price: {last_close}")
 
     except Exception as e:
-        print(f"[!] Bybit Engine Error: {e}")
+        print(f"[!] Bybit Sniper Engine Error: {e}")
+    

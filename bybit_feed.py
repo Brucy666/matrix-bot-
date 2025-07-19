@@ -1,41 +1,40 @@
 # bybit_feed.py
-# Pulls live BTC/USDT market data from Bybit (REST API)
-
 import requests
-import pandas as pd
 
-BYBIT_REST_URL = "https://api.bybit.com"
+BYBIT_BASE_URL = "https://api.bybit.com"
 
-def fetch_bybit_klines(symbol="BTCUSDT", interval="1", limit=100):
-    url = f"{BYBIT_REST_URL}/v5/market/kline"
-    params = {
-        "category": "linear",
-        "symbol": symbol,
-        "interval": interval,
-        "limit": limit
-    }
+def get_bybit_sniper_feed(symbol="BTCUSDT", interval="1"):
+    url = f"{BYBIT_BASE_URL}/v5/market/kline"
+    params = {"symbol": symbol, "interval": interval, "limit": 100}
     try:
         response = requests.get(url, params=params, timeout=5)
         response.raise_for_status()
-        raw = response.json().get("result", {}).get("list", [])
-        return raw[::-1]  # reverse to get oldest first
+        data = response.json().get("result", {}).get("list", [])
+        if not data:
+            return None
+        # Format into rows with expected values
+        rows = []
+        for row in data:
+            close = float(row[4])
+            volume = float(row[5])
+            rows.append({"close": close, "volume": volume})
+        return rows
     except Exception as e:
-        print(f"[!] Error fetching Bybit klines: {e}")
-        return []
-
-def get_bybit_sniper_feed():
-    raw = fetch_bybit_klines()
-    if not raw:
+        print(f"[!] Error fetching Bybit kline data: {e}")
         return None
 
-    df = pd.DataFrame(raw, columns=[
-        "timestamp", "open", "high", "low", "close", "volume", "turnover"
-    ])
-
-    df = df.astype(float)
-    df["vwap"] = df["turnover"] / df["volume"]
-    df["rsi"] = df["close"].rolling(window=14).apply(
-        lambda x: 100 - (100 / (1 + (x.diff().clip(lower=0).mean() / abs(x.diff().clip(upper=0).mean())))) if x.count() >= 14 else 50
-    )
-
-    return df[["close", "vwap", "rsi", "volume"]].tail(20)
+def fetch_orderbook(symbol="BTCUSDT"):
+    url = f"{BYBIT_BASE_URL}/v5/market/orderbook"
+    params = {"category": "linear", "symbol": symbol}
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json().get("result", {})
+        bids = data.get("b", [])
+        asks = data.get("a", [])
+        bid_total = sum(float(b[1]) for b in bids)
+        ask_total = sum(float(a[1]) for a in asks)
+        return {"bids": bid_total, "asks": ask_total}
+    except Exception as e:
+        print(f"[!] Error fetching Bybit orderbook: {e}")
+        return {"bids": 1.0, "asks": 1.0}

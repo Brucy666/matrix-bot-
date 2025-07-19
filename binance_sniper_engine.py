@@ -1,5 +1,4 @@
 # binance_sniper_engine.py
-
 from binance_feed import get_binance_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
 from trap_journal import log_sniper_event
@@ -7,9 +6,9 @@ from discord_alert import send_discord_alert
 from datetime import datetime
 import numpy as np
 
-print("[✓] Binance Sniper Engine Started for BTCUSDT...")
+print("[✓] Binance Sniper Engine Started for BTC-USDT...")
 
-def run_binance_sniper():
+def run_binance_engine():
     df = get_binance_sniper_feed()
     if df is None or len(df) < 20:
         return
@@ -17,8 +16,6 @@ def run_binance_sniper():
     try:
         close_prices = df['close'].astype(float).tolist()
         rsi_series = df['rsi'].astype(float).tolist()
-        volume = df['volume'].astype(float).tolist()
-
         last_close = float(close_prices[-1])
         vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
 
@@ -52,4 +49,4 @@ def run_binance_sniper():
             print(f"[BINANCE SNIPER] No trap. Score: {score}, RSI: {rsi_series[-1]}, Price: {last_close}")
 
     except Exception as e:
-        print(f"[!] Binance Engine Error: {e}")
+        print(f"[!] Binance Sniper Engine Error: {e}")

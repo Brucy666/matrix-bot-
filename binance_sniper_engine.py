@@ -10,21 +10,20 @@ import numpy as np
 print("[✓] Binance Sniper Engine Started for BTCUSDT...")
 
 def run_binance_sniper():
-    rows = get_binance_sniper_feed()
-    if not rows or len(rows) < 20:
-        print("[BINANCE SNIPER] Not enough data.")
+    df = get_binance_sniper_feed()
+    if df is None or len(df) < 20:
         return
 
     try:
-        close_prices = [row["close"] for row in rows]
-        volumes = [row["volume"] for row in rows]
-        rsi_series = calculate_rsi_series(close_prices)
-        last_close = close_prices[-1]
-        vwap = np.average(close_prices, weights=volumes)
+        close_prices = df['close'].astype(float).tolist()
+        rsi_series = df['rsi'].astype(float).tolist()
+
+        last_close = float(close_prices[-1])
+        vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
 
         orderbook = fetch_orderbook()
-        bids = orderbook.get("bids", 1.0)
-        asks = orderbook.get("asks", 1.0)
+        bids = float(orderbook.get("bids", 1.0))
+        asks = float(orderbook.get("asks", 1.0))
 
         score, reasons = score_vsplit_vwap({
             "rsi": rsi_series,
@@ -43,7 +42,14 @@ def run_binance_sniper():
                 "vwap": round(vwap, 2),
                 "rsi": round(rsi_series[-1], 2),
                 "score": score,
-                "reasons": reasons
+                "reasons": reasons,
+                "trap_type": "RSI-V + VWAP Trap",
+                "spoof_ratio": round(bids / asks, 3),
+                "bias": "Below" if last_close < vwap else "Above",
+                "rsi_status": "V-Split" if "split" in str(reasons).lower() else "None",
+                "vsplit_score": "VWAP Zone" if "vwap" in str(reasons).lower() else "None",
+                "confidence": score,
+                "flow_reason": "Below VWAP" if last_close < vwap else "Above VWAP"
             }
             log_sniper_event(trap)
             send_discord_alert(trap)
@@ -52,22 +58,4 @@ def run_binance_sniper():
             print(f"[BINANCE SNIPER] No trap. Score: {score}, RSI: {rsi_series[-1]}, Price: {last_close}")
 
     except Exception as e:
-        print(f"[!] Binance Engine Error: {e}")
-
-def calculate_rsi_series(closes, period=14):
-    if len(closes) < period + 1:
-        return [50.0] * len(closes)
-    deltas = np.diff(closes)
-    seed = deltas[:period]
-    up = seed[seed > 0].sum() / period
-    down = -seed[seed < 0].sum() / period
-    rs = up / down if down != 0 else 0
-    rsi = [100. - 100. / (1. + rs)]
-    for delta in deltas[period:]:
-        gain = max(delta, 0)
-        loss = -min(delta, 0)
-        up = (up * (period - 1) + gain) / period
-        down = (down * (period - 1) + loss) / period
-        rs = up / down if down != 0 else 0
-        rsi.append(100. - 100. / (1. + rs))
-    return [50.0] * (len(closes) - len(rsi)) + rsi
+        print(f"[!] Binance Engine Error:", e)

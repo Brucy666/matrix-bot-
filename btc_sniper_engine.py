@@ -3,6 +3,7 @@
 
 from kucoin_feed import get_kucoin_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
+from spoof_score_engine import apply_binance_spoof_scoring
 from trap_journal import log_sniper_event
 from discord_alert import send_discord_alert
 from datetime import datetime
@@ -53,13 +54,16 @@ def run_btc_sniper():
             "vsplit_score": "VWAP Zone" if abs(last_close - vwap) / vwap < 0.002 else "Outside Range"
         }
 
+        # Inject Binance spoof score
+        trap = apply_binance_spoof_scoring(trap)
+
         log_sniper_event(trap)
         send_discord_alert(trap)
 
-        if score >= 0:
+        if trap["score"] >= 2:
             print("[TRIGGER] KuCoin Sniper Entry:", trap)
         else:
-            print(f"[BTC SNIPER] No trap. Score: {score}, RSI: {rsi_series[-1]}, Price: {last_close}")
+            print(f"[BTC SNIPER] No trap. Score: {trap['score']}, RSI: {rsi_series[-1]}, Price: {last_close}")
 
     except Exception as e:
         print(f"[!] BTC Sniper Error: {e}")

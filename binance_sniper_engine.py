@@ -1,4 +1,5 @@
 # binance_sniper_engine.py
+
 from binance_feed import get_binance_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
 from trap_journal import log_sniper_event
@@ -16,6 +17,8 @@ def run_binance_sniper():
     try:
         close_prices = df['close'].astype(float).tolist()
         rsi_series = df['rsi'].astype(float).tolist()
+        volume = df['volume'].astype(float).tolist()
+
         last_close = float(close_prices[-1])
         vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
 

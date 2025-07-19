@@ -1,5 +1,4 @@
 # bybit_sniper_engine.py
-# Safely patched to handle missing money flow inputs
 
 from bybit_feed import get_bybit_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
@@ -16,8 +15,11 @@ def run_bybit_sniper():
         return
 
     try:
+        # Prepare data
         close_prices = df['close'].astype(float).tolist()
         rsi_series = df['rsi'].astype(float).tolist()
+        volume = df['volume'].astype(float).tolist()
+
         last_close = float(close_prices[-1])
         vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
 

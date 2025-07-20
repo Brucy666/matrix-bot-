@@ -1,48 +1,46 @@
-# ✅ bybit_feed.py (rewrite)
+# bybit_feed.py
 import requests
 import pandas as pd
-import numpy as np
 
-def get_bybit_sniper_feed():
+BYBIT_BASE_URL = "https://api.bybit.com"
+
+def get_bybit_sniper_feed(symbol="BTCUSDT"):
     try:
-        url = "https://api.bybit.com/v5/market/kline"
-        params = {
-            "category": "linear",
-            "symbol": "BTCUSDT",
-            "interval": "1",
-            "limit": 20
-        }
-        res = requests.get(url, params=params)
-        data = res.json().get("result", {}).get("list", [])
+        url = f"{BYBIT_BASE_URL}/v5/market/kline"
+        params = {"category": "linear", "symbol": symbol, "interval": "1", "limit": 100}
+        res = requests.get(url, params=params, timeout=5)
+        raw = res.json().get("result", {}).get("list", [])
+        if not raw:
+            return None
 
-        df = pd.DataFrame(data, columns=[
-            "timestamp", "open", "high", "low", "close", "volume", "turnover"])
-        df = df.astype({"close": float, "volume": float})
-        df["vwap"] = df["turnover"].astype(float) / df["volume"]
+        df = pd.DataFrame(raw, columns=[
+            "timestamp", "open", "high", "low", "close", "volume", "turnover"
+        ])
+        df = df.astype(float)
+        df["vwap"] = df["turnover"] / df["volume"]
 
-        # Dummy RSI logic for now (placeholder)
         delta = df["close"].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        gain = delta.clip(lower=0).rolling(window=14).mean()
+        loss = -delta.clip(upper=0).rolling(window=14).mean()
         rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        df["rsi"] = rsi.fillna(50)
+        df["rsi"] = 100 - (100 / (1 + rs))
+        df["rsi"] = df["rsi"].fillna(50)
 
         return df.tail(20)
-
     except Exception as e:
         print(f"[!] Bybit Feed Error: {e}")
         return None
 
-
-def fetch_orderbook():
+def fetch_orderbook(symbol="BTCUSDT"):
     try:
-        url = "https://api.bybit.com/v5/market/orderbook"
-        params = {"category": "linear", "symbol": "BTCUSDT"}
-        res = requests.get(url, params=params)
-        ob = res.json().get("result", {}).get("b", [])
-        bids = sum(float(b[1]) for b in res.json().get("result", {}).get("b", []))
-        asks = sum(float(a[1]) for a in res.json().get("result", {}).get("a", []))
+        url = f"{BYBIT_BASE_URL}/v5/market/orderbook"
+        params = {"category": "linear", "symbol": symbol}
+        res = requests.get(url, params=params, timeout=5)
+        res.raise_for_status()
+        ob = res.json().get("result", {})
+        bids = sum(float(b[1]) for b in ob.get("b", []))
+        asks = sum(float(a[1]) for a in ob.get("a", []))
         return {"bids": bids, "asks": asks}
-    except:
+    except Exception as e:
+        print(f"[!] Bybit Orderbook Error: {e}")
         return {"bids": 1.0, "asks": 1.0}

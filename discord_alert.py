@@ -1,49 +1,46 @@
-import requests
 import os
-from datetime import datetime
-
-DISCORD_WEBHOOK = os.getenv("DISCORD_WEBHOOK")
-
-def format_matrix_alert(trade_data):
-    symbol = trade_data.get("symbol", "Unknown")
-    exchange = trade_data.get("exchange", "Unknown")
-    entry_price = trade_data.get("entry_price", "?")
-    vwap = trade_data.get("vwap", "?")
-    rsi = trade_data.get("rsi", "?")
-    score = trade_data.get("score", "?")
-    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-
-    return {
-        "username": "Matrix Sniper Alert",
-        "embeds": [
-            {
-                "title": "🎯 Sniper Trade Executed",
-                "color": 0xff4f4f,
-                "fields": [
-                    {"name": "Symbol", "value": symbol, "inline": True},
-                    {"name": "Exchange", "value": exchange, "inline": True},
-                    {"name": "Entry Price", "value": str(entry_price), "inline": True},
-                    {"name": "VWAP", "value": str(vwap), "inline": True},
-                    {"name": "RSI", "value": str(rsi), "inline": True},
-                    {"name": "Score", "value": str(score), "inline": True},
-                    {"name": "Timestamp", "value": timestamp, "inline": False},
-                ],
-                "footer": {"text": "Matrix Sniper Alert"}
-            }
-        ]
-    }
+import requests
+import json
 
 def send_discord_alert(trade_data):
-    if not DISCORD_WEBHOOK:
-        print("[!] DISCORD_WEBHOOK not set.")
+    webhook_url = os.getenv("DISCORD_WEBHOOK")
+
+    if not webhook_url:
+        print("[Discord] ❌ DISCORD_WEBHOOK not set.")
         return
 
-    data = format_matrix_alert(trade_data)
     try:
-        response = requests.post(DISCORD_WEBHOOK, json=data)
-        if response.status_code != 204:
-            print(f"[!] Discord alert failed: {response.status_code}")
+        # Extract fallback values
+        symbol = trade_data.get("symbol", "Unknown")
+        exchange = trade_data.get("exchange", "Unknown")
+        entry_price = trade_data.get("entry_price", "N/A")
+        vwap = trade_data.get("vwap", "N/A")
+        rsi = trade_data.get("rsi", "N/A")
+        score = trade_data.get("score", 0)
+        timestamp = trade_data.get("timestamp", "N/A")
+
+        # Construct fields
+        embed = {
+            "title": "🎯 Sniper Trade Executed",
+            "color": 15158332,
+            "fields": [
+                {"name": "Symbol", "value": str(symbol), "inline": True},
+                {"name": "Exchange", "value": str(exchange), "inline": True},
+                {"name": "Entry Price", "value": str(entry_price), "inline": True},
+                {"name": "VWAP", "value": str(vwap), "inline": True},
+                {"name": "RSI", "value": str(rsi), "inline": True},
+                {"name": "Score", "value": str(score), "inline": True},
+                {"name": "Timestamp", "value": str(timestamp), "inline": False}
+            ],
+            "footer": {"text": "Matrix Sniper Alert"}
+        }
+
+        response = requests.post(webhook_url, json={"embeds": [embed]})
+
+        if response.status_code == 204:
+            print("[✓] Discord alert sent.")
         else:
-            print("[+] Discord alert sent successfully.")
+            print(f"[Discord] Error: {response.status_code} - {response.text}")
+
     except Exception as e:
-        print(f"[!] Discord alert error: {e}")
+        print(f"[Discord] Alert failure: {e}")

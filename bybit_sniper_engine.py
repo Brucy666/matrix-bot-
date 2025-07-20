@@ -1,3 +1,4 @@
+# bybit_sniper_engine.py
 from bybit_feed import get_bybit_sniper_feed, fetch_orderbook
 from sniper_score import score_vsplit_vwap
 from trap_journal import log_sniper_event
@@ -7,7 +8,6 @@ import numpy as np
 
 def run_bybit_sniper():
     print("[✓] Bybit Sniper Engine Started for BTC-USDT...")
-
     df = get_bybit_sniper_feed()
     if df is None or len(df) < 20:
         return
@@ -15,8 +15,7 @@ def run_bybit_sniper():
     try:
         close_prices = df['close'].astype(float).tolist()
         rsi_series = df['rsi'].astype(float).tolist()
-        volume = df['volume'].astype(float).tolist()
-        last_close = float(close_prices[-1])
+        last_close = close_prices[-1]
         vwap = float(df['vwap'].iloc[-1]) if 'vwap' in df.columns else np.mean(close_prices)
 
         orderbook = fetch_orderbook()
